@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<meta name="viewport" content="initial-scale=1.0, user-scalable=no"/>
+<style>
+
+html, body, #map {
+  width: 100%;
+  height: 90%;
+  margin: 0;
+  padding: 0;
+}
+
+.stations, .stations svg {
+  position: absolute;
+}
+
+.stations svg {
+  width: 60px;
+  height: 20px;
+  padding-right: 100px;
+  font: 10px sans-serif;
+}
+
+.stations circle {
+  fill: brown;
+  stroke: black;
+  stroke-width: 1.5px;
+}
+
+</style>
+<div id="map"></div>
+<script src="http://maps.google.com/maps/api/js?sensor=true"></script>
+<script src="http://cdnjs.cloudflare.com/ajax/libs/d3/3.5.3/d3.min.js"></script>
+<script src="http://cdnjs.cloudflare.com/ajax/libs/topojson/1.6.9/topojson.min.js"></script>
+<script>
+
+function milesToPixel(width,height){
+	var totPixels = (width * height);
+	var totWorldMiles = 316899308;
+	var milesPerPixel = (totWorldMiles / totPixels);
+	return milesPerPixel
+}
+
+function radiusLevel(u){
+  if (u > 500){
+    return 9
+  }else if (u > 400) {
+    return 8
+  }else if (u > 300) {
+    return 7
+  }else if (u > 200) {
+    return 6
+  }else {
+    return 3
+  }
+}
+
+function colorLevel(u){
+  if (u == 'NUESTRA FAMILY MEDCAIL GROUP'){
+    return 'pink'
+  }else if (u =='PROSPECT ACO CA') {
+    return 'Deep Purple'
+  }else if (u =='PROSPECT MEDICAL SHERMAN OAKS') {
+    return 'Indigo'
+  }else if (u =='PROSPECT MEDICAL/ORANGE COUNTY') {
+    return 'Cyan'
+  }else if (u == 'PROSPECT PROFESSIONAL CARE') {
+    return 'Teal'
+  }else if (u =='PROSPECT/HEALTH SOURCE'){
+    return 'Deep Orange'
+  }
+}
+
+// Create the Google Map…
+var map = new google.maps.Map(d3.select("#map").node(), {
+  zoom: 10,
+  center: new google.maps.LatLng(34.052, -118.243),
+  mapTypeId: google.maps.MapTypeId.TERRAIN
+});
+
+// Load the station data. When the data comes back, create an overlay.
+d3.csv("https://dl.dropboxusercontent.com/u/9338310/assets/rudy/data/facility_address_geocoded.csv", function(error, data) {
+  if (error) throw error;
+  var overlay = new google.maps.OverlayView();
+
+  // Add the container when the overlay is added to the map.
+  overlay.onAdd = function() {
+    var layer = d3.select(this.getPanes().overlayLayer).append("div")
+        .attr("class", "stations");
+
+    // Draw each marker as a separate SVG element.
+    // We could use a single SVG, but what size would it have?
+    overlay.draw = function() {
+      var projection = this.getProjection(),
+          padding = 10;
+
+      var marker = layer.selectAll("svg")
+          .data(d3.entries(data))
+          .each(transform) // update existing markers
+          .enter().append("svg")
+          .each(transform)
+          .attr("class", "marker");
+      // Add a circle.
+      //
+      marker.append("circle")
+          .attr("r", function(d){
+            return radiusLevel(Number(d.value.MM));
+          })
+          .attr("cx", padding)
+          .attr("cy", padding)
+          .style("fill", function(d){
+            //return colorLevel(d.value.IPA_Name)
+            return colorLevel(d.value.IPA_Name)
+          })
+          .style("opacity",0.7);
+
+      // Add a label.
+      // marker.append("text")
+      //     .attr("x", padding + 7)
+      //     .attr("y", padding)
+      //     .attr("dy", ".31em")
+      //     .text(function(d) { return d.key; });
+
+      function transform(d) {
+        d = new google.maps.LatLng(d.value.lat, d.value.long);
+        d = projection.fromLatLngToDivPixel(d);
+        return d3.select(this)
+            .style("left", (d.x - padding) + "px")
+            .style("top", (d.y - padding) + "px");
+      }
+
+      d3.csv("https://dl.dropboxusercontent.com/u/9338310/Report/owned_hospitals.csv", function(data) {
+        data.forEach(function(d) {
+          console.log(d.lat);
+          var hospitalCircle = new google.maps.Circle({
+            strokeColor: '#FF0000',
+            strokeOpacity: 0.1,
+            strokeWeight: 2,
+            fillColor: '#e74c3c',
+            fillOpacity: 0.1,
+            map: map,
+            center: {lat: Number(d.lat), lng: Number(d.long)},
+            radius: 1609.34*5
+          });
+        });
+      });
+
+
+	  var width = window.innerWidth;
+	  var height = window.innerHeight;
+	  //console.log(milesToPixel(width, height));
+    };
+  };
+  // Bind our overlay to the map…
+  overlay.setMap(map);
+});
+
+</script>
