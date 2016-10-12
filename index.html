@@ -4,8 +4,9 @@
 <style>
 
 html, body, #map {
+  font-family:  Arial, Helvetica, sans-serif;
   width: 100%;
-  height: 90%;
+  height: 100%;
   margin: 0;
   padding: 0;
 }
@@ -23,15 +24,58 @@ html, body, #map {
 
 .stations circle {
   fill: brown;
-  stroke: black;
-  stroke-width: 1.5px;
 }
 
+div#quake-pop-up {
+	display: none;
+	position:absolute;
+	color: white;
+	font-size: 14px;
+	background: rgba(0,0,0,0.5);
+	padding: 5px 10px 5px 10px;
+	-moz-border-radius: 5px 5px;
+	border-radius: 5px 5px;
+	z-index: 99;
+}
+div#quake-pop-up-ipa_group {
+	font-size: 12px;
+	width:300px;
+	margin-bottom: 10px;
+  font-weight: bold;
+}
+
+div#quake-pop-pcp_name {
+	width: 300px;
+  color: white;
+}
+#quake-pop-address {
+	font-size: 12px;
+  color: white;
+}
+div#quake-pop-up-content{
+  margin-bottom: 10px;
+}
 </style>
-<div id="map"></div>
+<body>
+  <div id="map"></div>
+  <div id="quake-pop-up">
+      <div id="quake-pop-up-ipa_group"></div>
+      <div id="quake-pop-up-content">
+          <table>
+            <tr>
+              <td><div id="quake-pop-pcp_name"></div></td>
+              <td><div id="quake-pop-mm"></div></td>
+            </tr>
+          </table>
+      </div>
+      <div id="quake-pop-address"></div>
+  </div>
+</body>
+
 <script src="http://maps.google.com/maps/api/js?sensor=true"></script>
 <script src="http://cdnjs.cloudflare.com/ajax/libs/d3/3.5.3/d3.min.js"></script>
-<script src="http://cdnjs.cloudflare.com/ajax/libs/topojson/1.6.9/topojson.min.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js"></script>
 <script>
 
 function milesToPixel(width,height){
@@ -56,18 +100,18 @@ function radiusLevel(u){
 }
 
 function colorLevel(u){
-  if (u == 'NUESTRA FAMILY MEDCAIL GROUP'){
-    return 'pink'
+  if (u == 'NUESTRA FAMILIA MEDICAL GROUP'){
+    return '#00BCD4'
   }else if (u =='PROSPECT ACO CA') {
-    return 'Deep Purple'
+    return '#FFFF00'
   }else if (u =='PROSPECT MEDICAL SHERMAN OAKS') {
-    return 'Indigo'
+    return '#E57373'
   }else if (u =='PROSPECT MEDICAL/ORANGE COUNTY') {
-    return 'Cyan'
+    return '#FF5722'
   }else if (u == 'PROSPECT PROFESSIONAL CARE') {
-    return 'Teal'
+    return '#CE93D8'
   }else if (u =='PROSPECT/HEALTH SOURCE'){
-    return 'Deep Orange'
+    return '#8BC34A'
   }
 }
 
@@ -78,6 +122,24 @@ var map = new google.maps.Map(d3.select("#map").node(), {
   mapTypeId: google.maps.MapTypeId.TERRAIN
 });
 
+function addInDesc(d){
+  $("#quake-pop-up").fadeOut(100, function () {
+      // Popup content
+      console.log(d.value.IPA_Name);
+      $("#quake-pop-up-ipa_group").html(d.value.IPA_Name);
+      $("#quake-pop-up-ipa_group").css({
+        "color": colorLevel(d.value.IPA_Name)
+      });
+      $("#quake-pop-pcp_name").html(d.value.PCPName);
+      $("#quake-pop-address").html(d.value.Address);
+      $("#quake-pop-mm").html(d.value.MM);
+      $("#quake-pop-up").css({
+          "right": 0,
+          "top": 50
+      });
+      $("#quake-pop-up").fadeIn(100);
+  });
+}
 // Load the station data. When the data comes back, create an overlay.
 d3.csv("https://dl.dropboxusercontent.com/u/9338310/assets/rudy/data/facility_address_geocoded.csv", function(error, data) {
   if (error) throw error;
@@ -85,8 +147,10 @@ d3.csv("https://dl.dropboxusercontent.com/u/9338310/assets/rudy/data/facility_ad
 
   // Add the container when the overlay is added to the map.
   overlay.onAdd = function() {
-    var layer = d3.select(this.getPanes().overlayLayer).append("div")
+    var layer = d3.select(this.getPanes().overlayMouseTarget).append("div")
         .attr("class", "stations");
+    var svg = layer.append("svg");
+    var quakes = svg.append("g").attr("class", "Quakes");
 
     // Draw each marker as a separate SVG element.
     // We could use a single SVG, but what size would it have?
@@ -102,6 +166,7 @@ d3.csv("https://dl.dropboxusercontent.com/u/9338310/assets/rudy/data/facility_ad
           .attr("class", "marker");
       // Add a circle.
       //
+
       marker.append("circle")
           .attr("r", function(d){
             return radiusLevel(Number(d.value.MM));
@@ -112,7 +177,13 @@ d3.csv("https://dl.dropboxusercontent.com/u/9338310/assets/rudy/data/facility_ad
             //return colorLevel(d.value.IPA_Name)
             return colorLevel(d.value.IPA_Name)
           })
-          .style("opacity",0.7);
+          .style("opacity",0.7)
+          .on("mouseover", function (d) {
+            addInDesc(d)
+          }).
+          on("mouseout", function () {
+              $("#quake-pop-up").fadeOut(50);
+          });
 
       // Add a label.
       // marker.append("text")
@@ -131,13 +202,12 @@ d3.csv("https://dl.dropboxusercontent.com/u/9338310/assets/rudy/data/facility_ad
 
       d3.csv("https://dl.dropboxusercontent.com/u/9338310/Report/owned_hospitals.csv", function(data) {
         data.forEach(function(d) {
-          console.log(d.lat);
           var hospitalCircle = new google.maps.Circle({
             strokeColor: '#FF0000',
-            strokeOpacity: 0.1,
+            strokeOpacity: 0.6,
             strokeWeight: 2,
             fillColor: '#e74c3c',
-            fillOpacity: 0.1,
+            fillOpacity: 0,
             map: map,
             center: {lat: Number(d.lat), lng: Number(d.long)},
             radius: 1609.34*5
@@ -145,10 +215,6 @@ d3.csv("https://dl.dropboxusercontent.com/u/9338310/assets/rudy/data/facility_ad
         });
       });
 
-
-	  var width = window.innerWidth;
-	  var height = window.innerHeight;
-	  //console.log(milesToPixel(width, height));
     };
   };
   // Bind our overlay to the map…
